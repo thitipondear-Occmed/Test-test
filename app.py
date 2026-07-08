@@ -186,7 +186,7 @@ elif st.session_state.step == 'EXAM':
             st.write("---")
             
             # 2. แสดงภาพความร้อนของ AI ต่อด้านล่าง (สามารถปรับสเกลขนาดให้พอเหมาะไม่ใหญ่เกินไปได้)
-            st.markdown("#### 🤖 ผลวิเคราะห์ความน่าจะเป็นและพื้นที่รอยโรคโดย AI (Grad-CAM)")
+            st.markdown("#### 🤖 ผลวิเคราะห์ความน่าจะเป็นและพื้นที่รอยโรคโดย AI โดยเครื่องมือมี Accuracy = 74.30, Sensitivity = 73.50, Specificity = 74.82")
             if os.path.exists(gradcam_img_path):
                 # ใช้คอลัมน์ช่วยเพื่อจำกัดให้ภาพ AI อยู่ตรงกลางและไม่ใหญ่เทอะทะเกินไป
                 sub_col1, sub_col2, sub_col3 = st.columns([1, 2, 1])
