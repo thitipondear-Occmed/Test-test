@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 
 # --- การตั้งค่าคอนฟิกและพาธข้อมูล ---
-MASTER_KEY_PATH = 'master_key_crossover.csv'  # ไฟล์ Master Key จากขั้นตอนที่ 1
+MASTER_KEY_PATH = 'master_key_crossover.csv'  # ไฟล์ Master Key
 ASSETS_DIR = 'streamlit_assets'  # โฟลเดอร์เก็บไฟล์ภาพ
 
 # --- 1. ฟังก์ชันเชื่อมต่อและบันทึกข้อมูลลง Google Sheets ---
@@ -18,20 +18,19 @@ def get_gspread_client():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    # ระบบจะอ่านค่าบัญชีบริการ (Service Account) ที่เราจะไปตั้งค่าในระบบ Cloud
     creds_dict = st.secrets["gcp_service_account"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
-def save_doctor_profile_to_sheets(doc_id, specialty, training, group, period):
+def save_doctor_profile_to_sheets(doc_id, specialty, training, exp_years, group, period):
     try:
         client = get_gspread_client()
-        # เปิดไฟล์ Google Sheets ด้วย URL ที่เก็บไว้ใน Secrets
         sheet = client.open_by_url(st.secrets["google_sheets_url"])
         worksheet = sheet.worksheet("doctor_profiles")
         
+        # เพิ่มข้อมูล exp_years เข้าไปในแถวข้อมูลที่จะบันทึกลงคลาวด์
         row_data = [
-            doc_id, specialty, training, group, period, 
+            doc_id, specialty, training, exp_years, group, period, 
             datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         ]
         worksheet.append_row(row_data)
@@ -64,7 +63,7 @@ if 'current_index' not in st.session_state:
 if 'case_start_time' not in st.session_state:
     st.session_state.case_start_time = None
 
-# --- 3. หน้าจอที่ 1: ลงทะเบียนประวัติแพทย์ (สอดรับกับใบ PDF) ---
+# --- 3. หน้าจอที่ 1: ลงทะเบียนประวัติแพทย์ (Demographic Information) ---
 if st.session_state.step == 'LOGIN':
     st.title("📝 แบบบันทึกผลการอ่านภาพถ่ายรังสีทรวงอก")
     st.subheader("(Chest X-ray Interpretation Record Form)")
@@ -74,7 +73,16 @@ if st.session_state.step == 'LOGIN':
     doc_id = st.text_input("รหัสแพทย์ผู้ทดสอบ (Doctor ID):", placeholder="เช่น Doc_01").strip()
     
     specialty = st.radio("1. วิชาชีพ/ตำแหน่งปัจจุบัน:", ["แพทย์ทั่วไป", "แพทย์ประจำบ้านอาชีวเวชศาสตร์", "แพทย์อาชีวเวชศาสตร์"])
-    training = st.radio("2. หลักสูตรที่ผ่านการอบรมการแปลผลฟิล์มในมาตรฐาน ILO:", ["ไม่เคยอบรม", "อบรมระยะสั้น 3 วัน", "AIR Pneumo"])
+    training = st.radio("2. หลักสูตรที่ผ่านการอบรมการแปลผลฟิล์มในมาตรฐาน ILO:", ["ไม่เคยอบรม", "อบรม ILO ระยะสั้น 3 วัน", "AIR Pneumo"])
+    
+    # [ปรับเพิ่ม] ช่องกรอกตัวเลขประสบการณ์หลังผ่านการอบรม
+    exp_years = st.number_input(
+        "3. มีประสบการณ์หลังการอบรมคัดกรองโรคปอดฝุ่นทรายกี่ปี (ปี):", 
+        min_value=0, 
+        max_value=50, 
+        value=0, 
+        step=1
+    )
     
     st.write("---")
     st.markdown("### การจัดกลุ่มทดลอง (Experimental Settings)")
@@ -86,12 +94,13 @@ if st.session_state.step == 'LOGIN':
             st.session_state.doc_id = doc_id
             st.session_state.specialty = specialty
             st.session_state.training = training
+            st.session_state.exp_years = exp_years
             st.session_state.group = group
             st.session_state.period = period
             
-            # บันทึกลง Google Sheets ทันที
+            # ส่งข้อมูลไปบันทึกพร้อมค่าประสบการณ์ปี
             with st.spinner("กำลังลงทะเบียนข้อมูลเข้าสู่คลาวด์..."):
-                if save_doctor_profile_to_sheets(doc_id, specialty, training, group, period):
+                if save_doctor_profile_to_sheets(doc_id, specialty, training, exp_years, group, period):
                     st.session_state.step = 'INSTRUCTIONS'
                     st.rerun()
         else:
@@ -138,7 +147,7 @@ elif st.session_state.step == 'INSTRUCTIONS':
         else:
             st.error(f"ไม่พบไฟล์เฉลย {MASTER_KEY_PATH} ในระบบ")
 
-# --- 5. หน้าจอที่ 3: ระบบทำข้อสอบและจำลองสถานการณ์คลินิก ---
+# --- 5. หน้าจอที่ 3: ระบบทำข้อสอบและการแสดงผลภาพเดี่ยว/ภาพคู่ ---
 elif st.session_state.step == 'EXAM':
     cases = st.session_state.exam_cases
     idx = st.session_state.current_index
@@ -156,19 +165,35 @@ elif st.session_state.step == 'EXAM':
             
         set_folder = f"set_{st.session_state.current_set.lower()}"
         
-        if st.session_state.ai_assisted:
-            st.info("💡 รอบการทดลองนี้: มีระบบ AI assist ช่วยแปลผล (แสดงผลแผนที่ความร้อน Grad-CAM)")
-            img_path = os.path.join(ASSETS_DIR, set_folder, "gradcam_images", f"{exam_id}.png")
-        else:
-            st.warning("🔒 รอบการทดลองนี้: ไม่มีระบบ AI assist ช่วยแปลผล (แสดงผลภาพเอกซเรย์ดิบปกติ)")
-            img_path = os.path.join(ASSETS_DIR, set_folder, "raw_images", f"{exam_id}.dcm")
-            if not os.path.exists(img_path):
-                img_path = os.path.join(ASSETS_DIR, set_folder, "raw_images", f"{exam_id}.png")
+        # กำหนดพาธของภาพทั้ง 2 รูปเตรียมไว้รองรับทั้งสองโหมด
+        raw_img_path = os.path.join(ASSETS_DIR, set_folder, "raw_images", f"{exam_id}.png")
+        if not os.path.exists(raw_img_path):
+            raw_img_path = os.path.join(ASSETS_DIR, set_folder, "raw_images", f"{exam_id}.dcm")
+            
+        gradcam_img_path = os.path.join(ASSETS_DIR, set_folder, "gradcam_images", f"{exam_id}.png")
 
-        if os.path.exists(img_path):
-            st.image(img_path, use_column_width=True)
+        # [ปรับเพิ่ม] การแบ่งเลย์เอาต์การแสดงผลภาพตามสถานะรอบการทดลอง (AI / Non-AI)
+        if st.session_state.ai_assisted:
+            st.info("💡 รอบการทดลองนี้: มีระบบ AI assist ช่วยแปลผล (แสดงผลภาพเอกซเรย์ปกติคู่ขนานคู่กับแผนที่ความร้อน Grad-CAM)")
+            
+            # แบ่งหน้าจอโปรแกรมเป็น 2 คอลัมน์ซ้าย-ขวาเท่ากันเพื่อเปรียบเทียบภาพ
+            col1, col2 = st.columns(2)
+            with col1:
+                if os.path.exists(raw_img_path):
+                    st.image(raw_img_path, caption="ภาพเอกซเรย์ทรวงอกปกติ (Raw Image)", use_container_width=True)
+                else:
+                    st.error(f"⚠️ ไม่พบไฟล์ภาพดิบ: {raw_img_path}")
+            with col2:
+                if os.path.exists(gradcam_img_path):
+                    st.image(gradcam_img_path, caption="ผลวิเคราะห์พื้นที่รอยโรคโดย AI (Grad-CAM)", use_container_width=True)
+                else:
+                    st.error(f"⚠️ ไม่พบไฟล์ภาพ Grad-CAM: {gradcam_img_path}")
         else:
-            st.error(f"⚠️ ไม่พบไฟล์ภาพในระบบพิกัดสตรีมลิต: {img_path}")
+            st.warning("🔒 รอบการทดลองนี้: ไม่มีระบบ AI assist ช่วยแปลผล (แสดงผลภาพเอกซเรย์ดิบปกติหน้าจอเดี่ยว)")
+            if os.path.exists(raw_img_path):
+                st.image(raw_img_path, caption="ภาพเอกซเรย์ทรวงอกปกติ (Raw Image)", use_container_width=True)
+            else:
+                st.error(f"⚠️ ไม่พบไฟล์ภาพในระบบ: {raw_img_path}")
 
         st.write("---")
         decision_raw = st.radio("🔍 ผลการอ่านภาพถ่ายรังสีทรวงอกของท่าน:", 
@@ -181,7 +206,6 @@ elif st.session_state.step == 'EXAM':
             end_time = time.time()
             time_spent = end_time - st.session_state.case_start_time
             
-            # บันทึกข้อมูลขึ้น Google Sheets บน Cloud ทันทีแบบเรียลไทม์
             with st.spinner("กำลังส่งผลคำตอบขึ้นคลาวด์..."):
                 if save_interpretation_log_to_sheets(
                     doc_id=st.session_state.doc_id,
