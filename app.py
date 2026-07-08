@@ -198,7 +198,7 @@ elif st.session_state.step == 'EXAM':
                         st.error(f"⚠️ ไม่พบภาพดิบ: {raw_img_path}")
                 with sub_col2:
                     if os.path.exists(gradcam_img_path):
-                        st.image(gradcam_img_path, caption="ผลวิเคราะห์โดย AI (Grad-CAM)", use_container_width=True)
+                        st.image(gradcam_img_path, caption="ผลวิเคราะห์พื้นที่และความน่าจะเป็นโดย AI ซึ่งเครื่องมือมีค่า Accuracy = 74.3%", use_container_width=True)
                     else:
                         st.error(f"⚠️ ไม่พบภาพ Grad-CAM: {gradcam_img_path}")
             else:
