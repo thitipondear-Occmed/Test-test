@@ -147,7 +147,7 @@ elif st.session_state.step == 'INSTRUCTIONS':
         else:
             st.error(f"ไม่พบไฟล์เฉลย {MASTER_KEY_PATH} ในระบบ")
 
-# --- 5. หน้าจอที่ 3: ระบบทำข้อสอบและการแสดงผลภาพเดี่ยว/ภาพคู่ ---
+# --- 5. หน้าจอที่ 3: ระบบทำข้อสอบ (เลย์เอาต์หน้าจอเดียวจบ ไม่ต้องเลื่อนเมาส์) ---
 elif st.session_state.step == 'EXAM':
     cases = st.session_state.exam_cases
     idx = st.session_state.current_index
@@ -157,74 +157,85 @@ elif st.session_state.step == 'EXAM':
         current_case = cases[idx]
         exam_id = current_case['Exam_ID']
         
+        # แสดงแถบความก้าวหน้าด้านบนสุดของจอ
         st.progress((idx) / total_cases)
-        st.subheader(f"📋 ข้อที่ {idx + 1} / {total_cases} (รหัสคำถามประจำเคส: {exam_id})")
+        st.subheader(f"📋 ข้อที่ {idx + 1} / {total_cases} (รหัสเคส: {exam_id})")
         
         if st.session_state.case_start_time is None:
             st.session_state.case_start_time = time.time()
             
         set_folder = f"set_{st.session_state.current_set.lower()}"
         
-        # กำหนดพาธของภาพทั้ง 2 รูปเตรียมไว้รองรับทั้งสองโหมด
+        # เตรียมพาธรูปภาพ
         raw_img_path = os.path.join(ASSETS_DIR, set_folder, "raw_images", f"{exam_id}.png")
         if not os.path.exists(raw_img_path):
             raw_img_path = os.path.join(ASSETS_DIR, set_folder, "raw_images", f"{exam_id}.dcm")
             
         gradcam_img_path = os.path.join(ASSETS_DIR, set_folder, "gradcam_images", f"{exam_id}.png")
 
-       # [ปรับเพิ่ม] การแบ่งเลย์เอาต์การแสดงผลภาพตามสถานะรอบการทดลอง (AI / Non-AI)
-       # [ปรับปรุง] เลย์เอาต์แบบบน-ล่าง (ภาพดิบขนาดใหญ่เต็มจอ 100% อยู่บน ภาพ AI อยู่ล่าง)
-        if st.session_state.ai_assisted:
-            st.info("💡 รอบการทดลองนี้: มีระบบ AI assist ช่วยแปลผล (แสดงผลภาพเอกซเรย์ปกติขนาดเต็ม และแผนที่ความร้อน Grad-CAM ด้านล่าง)")
-            
-            # 1. แสดงภาพดิบขนาดใหญ่เต็มหน้าจอ 100% ด้านบนก่อน
-            if os.path.exists(raw_img_path):
-                st.image(raw_img_path, caption="ภาพเอกซเรย์ทรวงอกปกติ (Raw Image) - ขนาดเต็มสำหรับการวินิจฉัยหลัก", use_container_width=True)
+        # 🛠️ [จุดเปลี่ยนสำคัญ] แบ่งจอหลักเป็น ซ้าย (กว้าง 2.8 ส่วน) และ ขวา (กว้าง 1.0 ส่วน)
+        main_col1, main_col2 = st.columns([2.8, 1.0])
+
+        # 🏞️ ฝั่งซ้าย: สำหรับแสดงรูปภาพอย่างเดียว
+        with main_col1:
+            if st.session_state.ai_assisted:
+                st.info("💡 รอบนี้มี AI assist ช่วยแปลผล (ภาพขวาคือ Grad-CAM)")
+                # แบ่งฝั่งซ้ายย่อยออกเป็น 2 คอลัมน์เพื่อวาง Raw คู่กับ Grad-cam
+                sub_col1, sub_col2 = st.columns(2)
+                with sub_col1:
+                    if os.path.exists(raw_img_path):
+                        st.image(raw_img_path, caption="ภาพเอกซเรย์ปกติ (Raw Image)", use_container_width=True)
+                    else:
+                        st.error(f"⚠️ ไม่พบภาพดิบ: {raw_img_path}")
+                with sub_col2:
+                    if os.path.exists(gradcam_img_path):
+                        st.image(gradcam_img_path, caption="ผลวิเคราะห์โดย AI (Grad-CAM)", use_container_width=True)
+                    else:
+                        st.error(f"⚠️ ไม่พบภาพ Grad-CAM: {gradcam_img_path}")
             else:
-                st.error(f"⚠️ ไม่พบไฟล์ภาพดิบ: {raw_img_path}")
-                
+                st.warning("🔒 รอบนี้ไม่มี AI assist ช่วยแปลผล (วินิจฉัยด้วยตนเอง)")
+                if os.path.exists(raw_img_path):
+                    # แสดงภาพดิบเดี่ยวๆ ขนาดใหญ่เต็มพื้นที่ฝั่งซ้าย
+                    st.image(raw_img_path, caption="ภาพเอกซเรย์ปกติ (Raw Image)", use_container_width=True)
+                else:
+                    st.error(f"⚠️ ไม่พบภาพ: {raw_img_path}")
+
+        # 📥 ฝั่งขวา: กล่องควบคุมการตอบคำถาม (Control Panel) อยู่ระดับเดียวกับรูป ไม่ต้องเลื่อนจอลงมา
+        with main_col2:
+            st.markdown("### 📋 ทำแบบประเมิน")
             st.write("---")
             
-            # 2. แสดงภาพความร้อนของ AI ต่อด้านล่าง (สามารถปรับสเกลขนาดให้พอเหมาะไม่ใหญ่เกินไปได้)
-            st.markdown("#### 🤖 ผลวิเคราะห์ความน่าจะเป็นและพื้นที่รอยโรคโดย AI โดยเครื่องมือมี Accuracy = 74.30, Sensitivity = 73.50, Specificity = 74.82")
-            if os.path.exists(gradcam_img_path):
-                # ใช้คอลัมน์ช่วยเพื่อจำกัดให้ภาพ AI อยู่ตรงกลางและไม่ใหญ่เทอะทะเกินไป
-                sub_col1, sub_col2, sub_col3 = st.columns([1, 2, 1])
-                with sub_col2:
-                    st.image(gradcam_img_path, caption="แผนที่ความร้อนแสดงจุดที่ AI ตรวจพบความผิดปกติ", use_container_width=True)
-            else:
-                st.error(f"⚠️ ไม่พบไฟล์ภาพ Grad-CAM: {gradcam_img_path}")
-        else:
-            st.warning("🔒 รอบการทดลองนี้: ไม่มีระบบ AI assist ช่วยแปลผล (แสดงผลภาพเอกซเรย์ดิบปกติหน้าจอเดี่ยว)")
-            if os.path.exists(raw_img_path):
-                st.image(raw_img_path, caption="ภาพเอกซเรย์ทรวงอกปกติ (Raw Image)", use_container_width=True)
-            else:
-                st.error(f"⚠️ ไม่พบไฟล์ภาพในระบบ: {raw_img_path}")
-
-        st.write("---")
-        decision_raw = st.radio("🔍 ผลการอ่านภาพถ่ายรังสีทรวงอกของท่าน:", 
-                                ["ปกติ (Normal)", "ผิดปกติ (Abnormal - สงสัยโรคนิวโมโคนิโอซิส)"], 
-                                index=0, key=f"radio_{exam_id}")
-        
-        decision_val = 1 if "ผิดปกติ" in decision_raw else 0
-        
-        if st.button("ยืนยันคำตอบ (Confirm)", type="primary", key=f"btn_{exam_id}"):
-            end_time = time.time()
-            time_spent = end_time - st.session_state.case_start_time
+            decision_raw = st.radio(
+                "🔍 ผลการอ่านฟิล์มของท่าน:", 
+                ["ปกติ (Normal)", "ผิดปกติ (Abnormal)"], 
+                index=0, 
+                key=f"radio_{exam_id}"
+            )
             
-            with st.spinner("กำลังส่งผลคำตอบขึ้นคลาวด์..."):
-                if save_interpretation_log_to_sheets(
-                    doc_id=st.session_state.doc_id,
-                    period=st.session_state.period,
-                    img_set=st.session_state.current_set,
-                    exam_id=exam_id,
-                    ai_on=st.session_state.ai_assisted,
-                    decision=decision_val,
-                    time_spent=time_spent
-                ):
-                    st.session_state.current_index += 1
-                    st.session_state.case_start_time = None  # ล้างเวลาเพื่อเริ่มข้อถัดไป
-                    st.rerun()
+            decision_val = 1 if "ผิดปกติ" in decision_raw else 0
+            
+            st.write("") # เพิ่มช่องว่างเล็กน้อย
+            st.write("")
+            
+            # ปุ่มยืนยันปรับให้กว้างเต็มคอลัมน์ขวาเพื่อกดง่ายขึ้น
+            if st.button("ยืนยันคำตอบ (Confirm) ➡️", type="primary", key=f"btn_{exam_id}", use_container_width=True):
+                end_time = time.time()
+                time_spent = end_time - st.session_state.case_start_time
+                
+                with st.spinner("กำลังส่งผลคำตอบ..."):
+                    if save_interpretation_log_to_sheets(
+                        doc_id=st.session_state.doc_id,
+                        period=st.session_state.period,
+                        img_set=st.session_state.current_set,
+                        exam_id=exam_id,
+                        ai_on=st.session_state.ai_assisted,
+                        decision=decision_val,
+                        time_spent=time_spent
+                    ):
+                        st.session_state.current_index += 1
+                        st.session_state.case_start_time = None  # ล้างเวลาเพื่อเริ่มข้อถัดไป
+                        st.rerun()
+                        
     else:
         st.session_state.step = 'FINISHED'
         st.rerun()
