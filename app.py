@@ -172,22 +172,28 @@ elif st.session_state.step == 'EXAM':
             
         gradcam_img_path = os.path.join(ASSETS_DIR, set_folder, "gradcam_images", f"{exam_id}.png")
 
-        # [ปรับเพิ่ม] การแบ่งเลย์เอาต์การแสดงผลภาพตามสถานะรอบการทดลอง (AI / Non-AI)
+       # [ปรับเพิ่ม] การแบ่งเลย์เอาต์การแสดงผลภาพตามสถานะรอบการทดลอง (AI / Non-AI)
+       # [ปรับปรุง] เลย์เอาต์แบบบน-ล่าง (ภาพดิบขนาดใหญ่เต็มจอ 100% อยู่บน ภาพ AI อยู่ล่าง)
         if st.session_state.ai_assisted:
-            st.info("💡 รอบการทดลองนี้: มีระบบ AI assist ช่วยแปลผล (แสดงผลภาพเอกซเรย์ปกติคู่ขนานคู่กับแผนที่ความร้อน Grad-CAM)")
+            st.info("💡 รอบการทดลองนี้: มีระบบ AI assist ช่วยแปลผล (แสดงผลภาพเอกซเรย์ปกติขนาดเต็ม และแผนที่ความร้อน Grad-CAM ด้านล่าง)")
             
-            # แบ่งหน้าจอโปรแกรมเป็น 2 คอลัมน์ซ้าย-ขวาเท่ากันเพื่อเปรียบเทียบภาพ
-            col1, col2 = st.columns(2)
-            with col1:
-                if os.path.exists(raw_img_path):
-                    st.image(raw_img_path, caption="ภาพเอกซเรย์ทรวงอกปกติ (Raw Image)", use_container_width=True)
-                else:
-                    st.error(f"⚠️ ไม่พบไฟล์ภาพดิบ: {raw_img_path}")
-            with col2:
-                if os.path.exists(gradcam_img_path):
-                    st.image(gradcam_img_path, caption="ผลวิเคราะห์พื้นที่รอยโรคโดย AI (Grad-CAM)", use_container_width=True)
-                else:
-                    st.error(f"⚠️ ไม่พบไฟล์ภาพ Grad-CAM: {gradcam_img_path}")
+            # 1. แสดงภาพดิบขนาดใหญ่เต็มหน้าจอ 100% ด้านบนก่อน
+            if os.path.exists(raw_img_path):
+                st.image(raw_img_path, caption="ภาพเอกซเรย์ทรวงอกปกติ (Raw Image) - ขนาดเต็มสำหรับการวินิจฉัยหลัก", use_container_width=True)
+            else:
+                st.error(f"⚠️ ไม่พบไฟล์ภาพดิบ: {raw_img_path}")
+                
+            st.write("---")
+            
+            # 2. แสดงภาพความร้อนของ AI ต่อด้านล่าง (สามารถปรับสเกลขนาดให้พอเหมาะไม่ใหญ่เกินไปได้)
+            st.markdown("#### 🤖 ผลวิเคราะห์ความน่าจะเป็นและพื้นที่รอยโรคโดย AI (Grad-CAM)")
+            if os.path.exists(gradcam_img_path):
+                # ใช้คอลัมน์ช่วยเพื่อจำกัดให้ภาพ AI อยู่ตรงกลางและไม่ใหญ่เทอะทะเกินไป
+                sub_col1, sub_col2, sub_col3 = st.columns([1, 2, 1])
+                with sub_col2:
+                    st.image(gradcam_img_path, caption="แผนที่ความร้อนแสดงจุดที่ AI ตรวจพบความผิดปกติ", use_container_width=True)
+            else:
+                st.error(f"⚠️ ไม่พบไฟล์ภาพ Grad-CAM: {gradcam_img_path}")
         else:
             st.warning("🔒 รอบการทดลองนี้: ไม่มีระบบ AI assist ช่วยแปลผล (แสดงผลภาพเอกซเรย์ดิบปกติหน้าจอเดี่ยว)")
             if os.path.exists(raw_img_path):
