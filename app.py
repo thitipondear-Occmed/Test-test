@@ -6,6 +6,15 @@ import time
 import os
 from datetime import datetime
 
+# ==============================================================================
+# 🎯 [ปรับเพิ่ม] ตั้งค่าคอนฟิกหน้าจอให้แผ่กว้างเต็มจอ 100% (Wide Mode)
+# ==============================================================================
+st.set_page_config(
+    page_title="Pneumoconiosis Interpretation Record",
+    page_icon="📝",
+    layout="wide"  # 👈 ตัวเปิดสวิตช์ให้ภาพและปุ่มกดแผ่เต็มหน้าจอคอมพิวเตอร์ครับคุณหมอ
+)
+
 # --- การตั้งค่าคอนฟิกและพาธข้อมูล ---
 MASTER_KEY_PATH = 'master_key_crossover.csv'  # ไฟล์ Master Key
 ASSETS_DIR = 'streamlit_assets'  # โฟลเดอร์เก็บไฟล์ภาพ
