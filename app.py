@@ -19,6 +19,15 @@ st.set_page_config(
 MASTER_KEY_PATH = 'master_key_crossover.csv'  # ไฟล์ Master Key
 ASSETS_DIR = 'streamlit_assets'  # โฟลเดอร์เก็บไฟล์ภาพ
 
+# ==============================================================================
+# 🔍 [ปรับเพิ่มใหม่] ฟังก์ชันหน้าต่าง Popup สำหรับซูมภาพดิบให้ใหญ่เต็มตา
+# ==============================================================================
+@st.dialog("🔍 ภาพเอกซเรย์ทรวงอกขนาดขยายใหญ่พิเศษ (Zoom Raw Image)")
+def open_zoom_modal(img_path):
+    st.image(img_path, use_container_width=True)
+    st.markdown("<p style='text-align: center; color: #888;'>💡 คลิกพื้นที่ด้านนอก หรือกดเครื่องหมาย X มุมขวาบนเพื่อปิดหน้าต่างซูม</p>", unsafe_allow_html=True)
+
+
 # --- 1. ฟังก์ชันเชื่อมต่อและบันทึกข้อมูลลง Google Sheets ---
 @st.cache_resource
 def get_gspread_client():
@@ -194,17 +203,25 @@ elif st.session_state.step == 'EXAM':
                 with sub_col1:
                     if os.path.exists(raw_img_path):
                         st.image(raw_img_path, caption="ภาพเอกซเรย์ปกติ (Raw Image)", use_container_width=True)
+                        # 🔍 [ปรับเพิ่มใหม่] ปุ่มกด Zoom ภาพดิบในรอบที่มี AI ช่วย
+                        if st.button("🔍 ซูมขยายภาพดิบ (Zoom Image)", key=f"zoom_btn_ai_{exam_id}", use_container_width=True):
+                            open_zoom_modal(raw_img_path)
                     else:
                         st.error(f"⚠️ ไม่พบภาพดิบ: {raw_img_path}")
                 with sub_col2:
                     if os.path.exists(gradcam_img_path):
                         st.image(gradcam_img_path, caption="ผลวิเคราะห์โดย AI (Grad-CAM)", use_container_width=True)
+                        # 📊 [ปรับเพิ่มใหม่] แสดงค่าประสิทธิภาพความแม่นยำของ Model ใต้รูป Grad-CAM
+                        st.markdown("<p style='text-align: center; color: #4A90E2; font-size: 0.9rem; font-weight: 500; margin-top: 4px;'>เครื่องมือนี้มีค่า Accuracy = 74.31%, Sensitivity = 73.50%, Specificity = 74.82</p>", unsafe_allow_html=True)
                     else:
                         st.error(f"⚠️ ไม่พบภาพ Grad-CAM: {gradcam_img_path}")
             else:
                 st.warning("🔒 รอบนี้ไม่มี AI assist ช่วยแปลผล (วินิจฉัยด้วยตนเอง)")
                 if os.path.exists(raw_img_path):
                     st.image(raw_img_path, caption="ภาพเอกซเรย์ปกติ (Raw Image)", use_container_width=True)
+                    # 🔍 [ปรับเพิ่มใหม่] ปุ่มกด Zoom ภาพดิบในรอบปกติ (วินิจฉัยด้วยตนเอง)
+                    if st.button("🔍 ซูมขยายภาพดิบ (Zoom Image)", key=f"zoom_btn_normal_{exam_id}", use_container_width=True):
+                        open_zoom_modal(raw_img_path)
                 else:
                     st.error(f"⚠️ ไม่พบภาพ: {raw_img_path}")
 
@@ -249,7 +266,7 @@ elif st.session_state.step == 'EXAM':
             st.session_state.step = 'FINISHED'
         st.rerun()
 
-# --- 6. หน้าจอที่ 4: ระบบบันทึกแบบประเมินความพึงพอใจ HSUS (ปรับปรุงระบบคำถามปลายเปิดแบบเลือกได้) ---
+# --- 6. หน้าจอที่ 4: ระบบบันทึกแบบประเมินความพึงพอใจ HSUS ---
 elif st.session_state.step == 'SURVEY':
     st.title("📋 แบบสอบถามประเมินความสามารถในการใช้งานระบบ AI ช่วยคัดกรองโรคนิวโมโคนิโอสิส")
     st.subheader("(Healthcare Systems Usability Scale - HSUS Evaluation)")
@@ -302,7 +319,6 @@ elif st.session_state.step == 'SURVEY':
             )
         st.write("---")
         
-    # 📝 [ปรับปรุงใหม่] ส่วนที่ 3: ความคิดเห็นเพิ่มเติมแบบสลับเปิด-ปิดกล่องข้อความ (Optional Open Questions)
     st.markdown("#### 📝 ส่วนที่ 3: ความคิดเห็นเพิ่มเติม")
     
     # คำถามปลายเปิดข้อที่ 1
