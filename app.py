@@ -20,7 +20,7 @@ MASTER_KEY_PATH = 'master_key_crossover.csv'  # ไฟล์ Master Key
 ASSETS_DIR = 'streamlit_assets'  # โฟลเดอร์เก็บไฟล์ภาพ
 
 # ==============================================================================
-# 🔍 [ปรับปรุงใหม่] เพิ่ม width="large" เพื่อให้หน้าต่าง Pop-up แผ่ขยายใหญ่เต็มหน้าจอ
+# 🔍 ฟังก์ชันหน้าต่าง Popup สำหรับซูมภาพดิบให้ใหญ่เต็มตา
 # ==============================================================================
 @st.dialog("🔍 ภาพเอกซเรย์ทรวงอกขนาดขยายใหญ่พิเศษ (Zoom Raw Image)", width="large")
 def open_zoom_modal(img_path):
@@ -226,35 +226,39 @@ elif st.session_state.step == 'EXAM':
             st.markdown("### 📋 ทำแบบประเมิน")
             st.write("---")
             
+            # 🎯 [ปรับปรุงใหม่] กำหนด index=None เพื่อให้เริ่มต้นโดยไม่มีการเลือกตัวเลือกใดๆ
             decision_raw = st.radio(
                 "🔍 ผลการอ่านฟิล์มของท่าน:", 
                 ["ปกติ (Normal)", "ผิดปกติ (Abnormal)"], 
-                index=0, 
+                index=None, 
                 key=f"radio_{exam_id}"
             )
-            
-            decision_val = 1 if "ผิดปกติ" in decision_raw else 0
             
             st.write("")
             st.write("")
             
             if st.button("ยืนยันคำตอบ (Confirm) ➡️", type="primary", key=f"btn_{exam_id}", use_container_width=True):
-                end_time = time.time()
-                time_spent = end_time - st.session_state.case_start_time
-                
-                with st.spinner("กำลังส่งผลคำตอบ..."):
-                    if save_interpretation_log_to_sheets(
-                        doc_id=st.session_state.doc_id,
-                        period=st.session_state.period,
-                        img_set=st.session_state.current_set,
-                        exam_id=exam_id,
-                        ai_on=st.session_state.ai_assisted,
-                        decision=decision_val,
-                        time_spent=time_spent
-                    ):
-                        st.session_state.current_index += 1
-                        st.session_state.case_start_time = None
-                        st.rerun()
+                # 🛑 [ปรับปรุงใหม่] ตรวจสอบว่าผู้ทดสอบได้คลิกเลือกคำตอบแล้วหรือยัง
+                if decision_raw is None:
+                    st.warning("⚠️ กรุณาเลือกผลการอ่านฟิล์ม (Normal หรือ Abnormal) ก่อนกดยืนยันคำตอบครับคุณหมอ")
+                else:
+                    end_time = time.time()
+                    time_spent = end_time - st.session_state.case_start_time
+                    decision_val = 1 if "ผิดปกติ" in decision_raw else 0
+                    
+                    with st.spinner("กำลังส่งผลคำตอบ..."):
+                        if save_interpretation_log_to_sheets(
+                            doc_id=st.session_state.doc_id,
+                            period=st.session_state.period,
+                            img_set=st.session_state.current_set,
+                            exam_id=exam_id,
+                            ai_on=st.session_state.ai_assisted,
+                            decision=decision_val,
+                            time_spent=time_spent
+                        ):
+                            st.session_state.current_index += 1
+                            st.session_state.case_start_time = None
+                            st.rerun()
                         
     else:
         if st.session_state.period == 2:
