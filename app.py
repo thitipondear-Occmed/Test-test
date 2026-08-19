@@ -92,7 +92,7 @@ if 'current_index' not in st.session_state:
 if 'case_start_time' not in st.session_state:
     st.session_state.case_start_time = None
 
-# --- 3. หน้าจอที่ 1: ลงทะเบียนประวัติแพทย์ (ปรับปรุง index=None และตรวจสอบความครบถ้วน) ---
+# --- 3. หน้าจอที่ 1: ลงทะเบียนประวัติแพทย์ ---
 if st.session_state.step == 'LOGIN':
     st.title("📝 แบบบันทึกผลการอ่านภาพถ่ายรังสีทรวงอก")
     st.subheader("(Chest X-ray Interpretation Record Form)")
@@ -101,7 +101,6 @@ if st.session_state.step == 'LOGIN':
     st.markdown("### ข้อมูลทั่วไป (Demographic Information)")
     doc_id = st.text_input("รหัสแพทย์ผู้ทดสอบ (Doctor ID):", placeholder="เช่น Doc_01").strip()
     
-    # 🎯 ปรับให้ index=None เพื่อไม่ให้มีค่าเริ่มต้น
     specialty = st.radio(
         "1. วิชาชีพ/ตำแหน่งปัจจุบัน:", 
         ["แพทย์ทั่วไป", "แพทย์ประจำบ้านอาชีวเวชศาสตร์", "แพทย์อาชีวเวชศาสตร์"],
@@ -138,7 +137,6 @@ if st.session_state.step == 'LOGIN':
     )
     
     if st.button("เริ่มขั้นตอนคำชี้แจง (Next)", type="primary"):
-        # 🛑 ตรวจสอบความครบถ้วนของข้อมูลก่อนส่งต่อ
         missing_fields = []
         if not doc_id:
             missing_fields.append("รหัสแพทย์ (Doctor ID)")
@@ -303,7 +301,7 @@ elif st.session_state.step == 'EXAM':
 
 # --- 6. หน้าจอที่ 4: ระบบบันทึกแบบประเมินความพึงพอใจ HSUS ---
 elif st.session_state.step == 'SURVEY':
-    st.title("📋 แบบสอบถามประเมินความสามารถในการใช้งานระบบ AI ช่วยคัดกรองโรคนิวโมโคนิโอสิส")[cite: 1]
+    st.title("📋 แบบสอบถามประเมินความสามารถในการใช้งานระบบ AI ช่วยคัดกรองโรคนิวโมโคนิโอสิส")
     st.subheader("(Healthcare Systems Usability Scale - HSUS Evaluation)")
     st.write("คำชี้แจง: โปรดเลือกคะแนนในหัวข้อที่ตรงกับความคิดเห็นของท่านมากที่สุด (5 = เห็นด้วยอย่างยิ่ง, 1 = ไม่เห็นด้วยอย่างยิ่ง)")
     st.write("---")
