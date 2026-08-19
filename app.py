@@ -92,7 +92,7 @@ if 'current_index' not in st.session_state:
 if 'case_start_time' not in st.session_state:
     st.session_state.case_start_time = None
 
-# --- 3. หน้าจอที่ 1: ลงทะเบียนประวัติแพทย์ ---
+# --- 3. หน้าจอที่ 1: ลงทะเบียนประวัติแพทย์ (ปรับปรุง index=None และตรวจสอบความครบถ้วน) ---
 if st.session_state.step == 'LOGIN':
     st.title("📝 แบบบันทึกผลการอ่านภาพถ่ายรังสีทรวงอก")
     st.subheader("(Chest X-ray Interpretation Record Form)")
@@ -101,8 +101,20 @@ if st.session_state.step == 'LOGIN':
     st.markdown("### ข้อมูลทั่วไป (Demographic Information)")
     doc_id = st.text_input("รหัสแพทย์ผู้ทดสอบ (Doctor ID):", placeholder="เช่น Doc_01").strip()
     
-    specialty = st.radio("1. วิชาชีพ/ตำแหน่งปัจจุบัน:", ["แพทย์ทั่วไป", "แพทย์ประจำบ้านอาชีวเวชศาสตร์", "แพทย์อาชีวเวชศาสตร์"])
-    training = st.radio("2. หลักสูตรที่ผ่านการอบรมการแปลผลฟิล์มในมาตรฐาน ILO:", ["ไม่เคยอบรม", "อบรม ILO ระยะสั้น 3 วัน", "AIR Pneumo"])
+    # 🎯 ปรับให้ index=None เพื่อไม่ให้มีค่าเริ่มต้น
+    specialty = st.radio(
+        "1. วิชาชีพ/ตำแหน่งปัจจุบัน:", 
+        ["แพทย์ทั่วไป", "แพทย์ประจำบ้านอาชีวเวชศาสตร์", "แพทย์อาชีวเวชศาสตร์"],
+        index=None,
+        key="prof_specialty"
+    )
+    
+    training = st.radio(
+        "2. หลักสูตรที่ผ่านการอบรมการแปลผลฟิล์มในมาตรฐาน ILO:", 
+        ["ไม่เคยอบรม", "อบรม ILO ระยะสั้น 3 วัน", "AIR Pneumo"],
+        index=None,
+        key="prof_training"
+    )
     
     exp_years = st.number_input(
         "3. มีประสบการณ์หลังการอบรมคัดกรองโรคปอดฝุ่นทรายกี่ปี (ปี):", 
@@ -111,11 +123,37 @@ if st.session_state.step == 'LOGIN':
     
     st.write("---")
     st.markdown("### การจัดกลุ่มทดลอง (Experimental Settings)")
-    period = st.selectbox("รอบการทดลอง (Experimental Period):", [1, 2], help="รอบที่ 1 หรือ รอบที่ 2 หลังผ่าน Washout period")
-    group = st.selectbox("กลุ่มการทดลองที่ได้รับสุ่ม (Assigned Group):", ["กลุ่มที่ 1", "กลุ่มที่ 2"])
+    period = st.selectbox(
+        "รอบการทดลอง (Experimental Period):", 
+        [1, 2], 
+        index=None,
+        placeholder="-- กรุณาเลือกรอบการทดลอง --",
+        help="รอบที่ 1 หรือ รอบที่ 2 หลังผ่าน Washout period"
+    )
+    group = st.selectbox(
+        "กลุ่มการทดลองที่ได้รับสุ่ม (Assigned Group):", 
+        ["กลุ่มที่ 1", "กลุ่มที่ 2"],
+        index=None,
+        placeholder="-- กรุณาเลือกกลุ่มการทดลอง --"
+    )
     
     if st.button("เริ่มขั้นตอนคำชี้แจง (Next)", type="primary"):
-        if doc_id:
+        # 🛑 ตรวจสอบความครบถ้วนของข้อมูลก่อนส่งต่อ
+        missing_fields = []
+        if not doc_id:
+            missing_fields.append("รหัสแพทย์ (Doctor ID)")
+        if specialty is None:
+            missing_fields.append("วิชาชีพ/ตำแหน่งปัจจุบัน")
+        if training is None:
+            missing_fields.append("หลักสูตรการอบรม ILO")
+        if period is None:
+            missing_fields.append("รอบการทดลอง (Period)")
+        if group is None:
+            missing_fields.append("กลุ่มการทดลอง (Group)")
+            
+        if missing_fields:
+            st.warning(f"⚠️ กรุณากรอก/เลือกข้อมูลให้ครบถ้วนก่อนไปต่อครับ: {', '.join(missing_fields)}")
+        else:
             st.session_state.doc_id = doc_id
             st.session_state.specialty = specialty
             st.session_state.training = training
@@ -127,8 +165,6 @@ if st.session_state.step == 'LOGIN':
                 if save_doctor_profile_to_sheets(doc_id, specialty, training, exp_years, group, period):
                     st.session_state.step = 'INSTRUCTIONS'
                     st.rerun()
-        else:
-            st.error("กรุณากรอกรหัส Doctor ID ก่อนเข้าสู่ระบบครับคุณหมอ")
 
 # --- 4. หน้าจอที่ 2: คำชี้แจงเกณฑ์วินัยและวิธีการตรวจ ---
 elif st.session_state.step == 'INSTRUCTIONS':
@@ -226,7 +262,6 @@ elif st.session_state.step == 'EXAM':
             st.markdown("### 📋 ทำแบบประเมิน")
             st.write("---")
             
-            # 🎯 [ปรับปรุงใหม่] กำหนด index=None เพื่อให้เริ่มต้นโดยไม่มีการเลือกตัวเลือกใดๆ
             decision_raw = st.radio(
                 "🔍 ผลการอ่านฟิล์มของท่าน:", 
                 ["ปกติ (Normal)", "ผิดปกติ (Abnormal)"], 
@@ -238,7 +273,6 @@ elif st.session_state.step == 'EXAM':
             st.write("")
             
             if st.button("ยืนยันคำตอบ (Confirm) ➡️", type="primary", key=f"btn_{exam_id}", use_container_width=True):
-                # 🛑 [ปรับปรุงใหม่] ตรวจสอบว่าผู้ทดสอบได้คลิกเลือกคำตอบแล้วหรือยัง
                 if decision_raw is None:
                     st.warning("⚠️ กรุณาเลือกผลการอ่านฟิล์ม (Normal หรือ Abnormal) ก่อนกดยืนยันคำตอบครับคุณหมอ")
                 else:
@@ -269,9 +303,9 @@ elif st.session_state.step == 'EXAM':
 
 # --- 6. หน้าจอที่ 4: ระบบบันทึกแบบประเมินความพึงพอใจ HSUS ---
 elif st.session_state.step == 'SURVEY':
-    st.title("📋 แบบสอบถามประเมินความสามารถในการใช้งานระบบ AI ช่วยคัดกรองโรคนิวโมโคนิโอสิส")
+    st.title("📋 แบบสอบถามประเมินความสามารถในการใช้งานระบบ AI ช่วยคัดกรองโรคนิวโมโคนิโอสิส")[cite: 1]
     st.subheader("(Healthcare Systems Usability Scale - HSUS Evaluation)")
-    st.write("คำชี้แจง: โปรดทำเลือกคะแนนในหัวข้อที่ตรงกับความคิดเห็น of ท่านมากที่สุด (5 = เห็นด้วยอย่างยิ่ง, 1 = ไม่เห็นด้วยอย่างยิ่ง)")
+    st.write("คำชี้แจง: โปรดเลือกคะแนนในหัวข้อที่ตรงกับความคิดเห็นของท่านมากที่สุด (5 = เห็นด้วยอย่างยิ่ง, 1 = ไม่เห็นด้วยอย่างยิ่ง)")
     st.write("---")
     
     hsus_questions = {
@@ -314,7 +348,7 @@ elif st.session_state.step == 'SURVEY':
             ratings_output[f"Q{q_num}"] = st.radio(
                 f"**ข้อที่ {q_num}:** {q_text}", 
                 options, 
-                index=1, 
+                index=None, 
                 horizontal=True, 
                 key=f"hsus_q_{q_num}"
             )
@@ -354,11 +388,16 @@ elif st.session_state.step == 'SURVEY':
     st.write("---")
     
     if st.button("ส่งแบบประเมินและเสร็จสิ้นกระบวนการวิจัย 📥", type="primary", use_container_width=True):
-        open_answers = [open_1, open_2, open_3]
-        with st.spinner("กำลังทำการส่งคะแนน HSUS เข้าคลาวด์..."):
-            if save_hsus_responses_to_sheets(st.session_state.doc_id, ratings_output, open_answers):
-                st.session_state.step = 'FINISHED'
-                st.rerun()
+        missing_qs = [str(i) for i in range(1, 21) if ratings_output.get(f"Q{i}") is None]
+        
+        if missing_qs:
+            st.warning(f"⚠️ กรุณาตอบแบบประเมินให้ครบทุกข้อก่อนส่งข้อมูลครับ (ข้อที่ยังไม่ได้เลือก: ข้อ {', '.join(missing_qs)})")
+        else:
+            open_answers = [open_1, open_2, open_3]
+            with st.spinner("กำลังทำการส่งคะแนน HSUS เข้าคลาวด์..."):
+                if save_hsus_responses_to_sheets(st.session_state.doc_id, ratings_output, open_answers):
+                    st.session_state.step = 'FINISHED'
+                    st.rerun()
 
 # --- 7. หน้าจอสุดท้าย: เสร็จสิ้นการทดสอบ ---
 elif st.session_state.step == 'FINISHED':
